@@ -1,113 +1,111 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {BaseHook} from "@v4-core/contracts/BaseHook.sol";
-import {Hooks} from "@v4-core/contracts/libraries/Hooks.sol";
-import {IPoolManager} from "@v4-core/contracts/interfaces/IPoolManager.sol";
-import {PoolKey} from "@v4-core/contracts/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "@v4-core/contracts/types/PoolId.sol";
-import {Currency, CurrencyLibrary} from "@v4-core/contracts/types/Currency.sol";
-import {BalanceDelta} from "@v4-core/contracts/types/BalanceDelta.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "@uniswap/v4-core/contracts/interfaces/IBaseHook.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {Hooks} from "lib/v4-core/src/libraries/Hooks.sol";
+import {IPoolManager} from "lib/v4-core/src/interfaces/IPoolManager.sol";
+import {PoolKey} from "lib/v4-core/src/types/PoolKey.sol";
+import {PoolId, PoolIdLibrary} from "lib/v4-core/src/types/PoolId.sol";
+import {Currency, CurrencyLibrary} from "lib/v4-core/src/types/Currency.sol";
+import {BalanceDelta} from "lib/v4-core/src/types/BalanceDelta.sol";
+import {IERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {AggregatorV3Interface} from "lib/chainlink-brownie-contracts/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-// ... existing IEigenLayerAVS interface ...
+interface IEigenLayerAVS {
+    function getVolatility() external view returns (uint256);
+    function checkFraudProof(address trader, bytes calldata tradeData) external view returns (bool);
+    function restake(address user, uint256 amount) external;
+}
 
-contract EigenProtectedAVSHook is BaseHook {
-    using PoolIdLibrary for PoolKey;
-    using CurrencyLibrary for Currency;
+contract EigenProtectedAVSHook is IBaseHook {
+    // Fee constants
+    uint256 public constant BASE_FEE = 30; // 0.3%
+    uint256 public constant HIGH_FEE = 100; // 1.0%
+    uint256 public constant HIGH_VOLATILITY_THRESHOLD = 100;
 
-    // Add PoolManager reference
-    IPoolManager public immutable poolManager;
-    
-    // ... existing fee constants and other state variables ...
+    // Chainlink price feed
+    AggregatorV3Interface public priceFeed;
+    uint256 public lastCheckedPrice;
+    uint256 public priceThreshold = 5; // Trigger on >5% price change
 
-    constructor(
-        IPoolManager _poolManager,
-        address _priceFeed, 
-        address _eigenLayer
-    ) {
-        poolManager = _poolManager;
+    // EigenLayer AVS
+    IEigenLayerAVS public eigenLayer;
+
+    // Admin
+    address public owner;
+
+    // Events
+    event FeesAdjusted(uint256 newFee);
+    event FraudDetected(address indexed trader, uint256 penalty);
+
+    constructor(address _priceFeed, address _eigenLayer) {
         priceFeed = AggregatorV3Interface(_priceFeed);
         eigenLayer = IEigenLayerAVS(_eigenLayer);
         owner = msg.sender;
     }
 
-    // Implement all required hook functions
-    function beforeInitialize(address sender, PoolKey calldata key, uint160 sqrtPriceX96)
-        external
-        override
-        returns (bytes4)
-    {
-        return IHooks.beforeInitialize.selector;
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not authorized");
+        _;
     }
 
-    function afterInitialize(address sender, PoolKey calldata key, uint160 sqrtPriceX96, int24 tick)
-        external
-        override
-        returns (bytes4)
-    {
-        return IHooks.afterInitialize.selector;
-    }
-
-    function beforeModifyPosition(address sender, PoolKey calldata key, ModifyPositionParams calldata params)
-        external
-        override
-        returns (bytes4)
-    {
-        return IHooks.beforeModifyPosition.selector;
-    }
-
-    function afterModifyPosition(address sender, PoolKey calldata key, ModifyPositionParams calldata params, BalanceDelta delta)
-        external
-        override
-        returns (bytes4)
-    {
-        return IHooks.afterModifyPosition.selector;
-    }
-
-    function beforeSwap(address sender, PoolKey calldata key, SwapParams calldata params)
-        external
-        override
-        returns (bytes4)
-    {
+    // Lifecycle hooks
+    function beforeSwap(bytes calldata data) external override {
         // Adjust fees based on volatility and price changes
         uint256 volatility = eigenLayer.getVolatility();
         uint256 currentPrice = getLatestPrice();
 
         if (hasSignificantPriceChange(currentPrice) || volatility > HIGH_VOLATILITY_THRESHOLD) {
-            setSwapFee(key, HIGH_FEE);
+            setSwapFee(HIGH_FEE);
         } else {
-            setSwapFee(key, BASE_FEE);
+            setSwapFee(BASE_FEE);
         }
         emit FeesAdjusted(currentPrice);
-
-        return IHooks.beforeSwap.selector;
     }
 
-    function afterSwap(address sender, PoolKey calldata key, SwapParams calldata params, BalanceDelta delta)
-        external
-        override
-        returns (bytes4)
-    {
+    function afterSwap(bytes calldata data) external override {
         // Fraud detection
-        bool fraudDetected = eigenLayer.checkFraudProof(sender, params.data);
+        bool fraudDetected = eigenLayer.checkFraudProof(msg.sender, data);
         if (fraudDetected) {
-            uint256 penalty = penalize(sender);
-            emit FraudDetected(sender, penalty);
+            uint256 penalty = penalize(msg.sender);
+            emit FraudDetected(msg.sender, penalty);
         }
-
-        return IHooks.afterSwap.selector;
     }
 
-    // Updated fee adjustment logic
-    function setSwapFee(PoolKey calldata key, uint256 fee) internal {
-        // Ensure fee is within valid range (0-100%)
-        require(fee <= 1e6, "Fee too high"); // 1e6 = 100%
-        
-        // Update the fee for the specific pool
-        poolManager.setFeeConfiguration(key, fee, 0); // Second parameter is for hooks' own fee
+    // Fee adjustment logic
+    function setSwapFee(uint256 fee) internal {
+        // Placeholder for actual PoolManager fee adjustment logic
     }
 
-    // ... rest of existing code (penalize, getLatestPrice, hasSignificantPriceChange, admin functions) ...
+    // Fraud penalization logic
+    function penalize(address trader) internal returns (uint256 penalty) {
+        penalty = 1 ether; // Example penalty amount
+        // Implement penalty logic (e.g., slashing funds, transferring to LP rewards)
+        return penalty;
+    }
+
+    // Chainlink Price Feed
+    function getLatestPrice() public view returns (uint256) {
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+        return uint256(price);
+    }
+
+    function hasSignificantPriceChange(uint256 currentPrice) internal view returns (bool) {
+        if (lastCheckedPrice == 0) return false;
+        uint256 priceChange = (currentPrice > lastCheckedPrice)
+            ? currentPrice - lastCheckedPrice
+            : lastCheckedPrice - currentPrice;
+        uint256 priceChangePercent = (priceChange * 100) / lastCheckedPrice;
+        return priceChangePercent >= priceThreshold;
+    }
+
+    // Admin functions
+    function updateEigenLayer(address _eigenLayer) external onlyOwner {
+        eigenLayer = IEigenLayerAVS(_eigenLayer);
+    }
+
+    function updatePriceThreshold(uint256 newThreshold) external onlyOwner {
+        priceThreshold = newThreshold;
+    }
 }
