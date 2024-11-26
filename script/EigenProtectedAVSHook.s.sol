@@ -1,27 +1,26 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import {Script} from "forge-std/Script.sol";
 import {EigenProtectedAVSHook} from "../src/EigenProtectedAVSHook.sol";
 import {IPoolManager} from "lib/v4-core/src/interfaces/IPoolManager.sol";
 
 contract DeployEigenProtectedAVSHook is Script {
-    function run() external {
-        // Begin recording transactions for deployment
+    function run() public {
         vm.startBroadcast();
-
-        // Deploy the hook with constructor arguments
-        // Note: You'll need to replace these addresses with actual values
-        address poolManager = address(0); // Replace with actual PoolManager address
-        address priceFeed = address(0);   // Replace with actual Chainlink price feed
-        address eigenLayer = address(0);   // Replace with actual EigenLayer address
-
-        EigenProtectedAVSHook hook = new EigenProtectedAVSHook(
-            IPoolManager(poolManager),
-            priceFeed,
-            eigenLayer
+        
+        // Deploy or get the PoolManager address first
+        address poolManagerAddress = address(0); // Replace with actual address
+        
+        // Deploy the hook and store it in a variable that we'll use
+        EigenProtectedAVSHook deployedHook = new EigenProtectedAVSHook(
+            IPoolManager(poolManagerAddress)
         );
-
+        
+        // Use deployedHook here if needed
+        // For example:
+        // deployedHook.setOperatorStake(address(1), 1 ether);
+        
         vm.stopBroadcast();
     }
 }
