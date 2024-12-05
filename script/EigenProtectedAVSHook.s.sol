@@ -7,11 +7,17 @@ import "../src/EigenProtectedAVSHook.sol";
 contract DeployEigenProtectedAVSHook is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address brevisAddress = vm.envAddress("BREVIS_ADDRESS");
 
         vm.startBroadcast(deployerPrivateKey);
 
-        EigenProtectedAVSHook hook = new EigenProtectedAVSHook(brevisAddress);
+        EigenProtectedAVSHook hook = new EigenProtectedAVSHook(
+            vm.envAddress("CONFIG_ADDRESS"),
+            vm.envAddress("BREVIS_ADDRESS"), 
+            vm.envAddress("BREVIS_REQUEST_ADDRESS"),
+            vm.envAddress("EIGEN_LAYER_ADDRESS")
+        );
+
+        console.log("Deployed to:", address(hook));
 
         vm.stopBroadcast();
     }
