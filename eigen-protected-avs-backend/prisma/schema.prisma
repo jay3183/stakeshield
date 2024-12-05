@@ -1,0 +1,29 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Operator {
+  id           String    @id @default(cuid())
+  address      String    @unique
+  stake        BigInt    @default(0)
+  fraudCount   Int       @default(0)
+  updatedAt    DateTime  @updatedAt
+  fraudProofs  FraudProofVerification[]
+}
+
+model FraudProofVerification {
+  id                String    @id @default(cuid())
+  proofId          String
+  isValid          Boolean
+  timestamp        DateTime   @default(now())
+  verificationError String?
+  operator         Operator?  @relation(fields: [operatorId], references: [id])
+  operatorId       String?
+
+  @@index([proofId])
+}

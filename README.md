@@ -64,3 +64,49 @@ $ forge --help
 $ anvil --help
 $ cast --help
 ```
+
+# EigenProtectedAVSHook
+
+A Uniswap v4 hook that integrates with EigenLayer for operator validation.
+
+## Quick Start
+
+1. Install dependencies:
+
+```bash
+yarn install
+```
+
+2. Set up environment:
+
+```bash
+cp .env.example .env
+# Fill in required values
+```
+
+3. Start all services:
+
+```bash
+chmod +x scripts/start.sh
+./scripts/start.sh
+```
+
+## Deployment
+
+### Local Testing
+
+```bash
+forge script script/Deploy.local.s.sol
+```
+
+### Testnet (Sepolia)
+
+```bash
+forge script script/EigenProtectedAVSHook.s.sol --rpc-url $SEPOLIA_RPC_URL --broadcast --verify
+```
+
+### Mainnet
+
+```bash
+forge script script/deploy/DeployMainnet.s.sol --rpc-url $MAINNET_RPC_URL --broadcast --verify
+```

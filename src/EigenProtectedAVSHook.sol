@@ -1,213 +1,124 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IHooks} from "lib/v4-core/src/interfaces/IHooks.sol";
-import {IPoolManager} from "lib/v4-core/src/interfaces/IPoolManager.sol";
-import {PoolKey} from "lib/v4-core/src/types/PoolKey.sol";
-import {BalanceDelta} from "lib/v4-core/src/types/BalanceDelta.sol";
-import {BeforeSwapDelta} from "lib/v4-core/src/types/BeforeSwapDelta.sol";
-import {Currency} from "lib/v4-core/src/types/Currency.sol";
-import {LPFeeLibrary} from "lib/v4-core/src/libraries/LPFeeLibrary.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IEigenProtectedAVSHook} from "./interfaces/IEigenProtectedAVSHook.sol";
+import {SystemConfig} from "./config/SystemConfig.sol";
+import {Errors} from "./libraries/Errors.sol";
+import {ProofVerification} from "./libraries/ProofVerification.sol";
+import {PriceImpact} from "./libraries/PriceImpact.sol";
+import {IBrevisProof} from "./interfaces/IBrevisProof.sol";
+import {IBrevisRequest} from "./interfaces/IBrevisRequest.sol";
+import {IDelegationManager} from "./interfaces/IDelegationManager.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {OperatorData} from "./interfaces/IEigenProtectedAVSHook.sol";
 
-contract EigenProtectedAVSHook is IHooks, Ownable, ReentrancyGuard {
-    using LPFeeLibrary for uint24;
-
-    // Hook flags from the Hooks library
-    uint160 internal constant BEFORE_SWAP_FLAG = 1 << 7;
-    uint160 internal constant AFTER_SWAP_FLAG = 1 << 6;
-    uint160 internal constant BEFORE_SWAP_RETURNS_DELTA_FLAG = 1 << 3;
-    uint160 internal constant AFTER_SWAP_RETURNS_DELTA_FLAG = 1 << 2;
-
-    IPoolManager public immutable poolManager;
-
-    // Events
-    event DynamicFeeUpdated(uint256 newFee);
-    event FraudDetected(address indexed sender);
-    event TraderPenalized(address indexed trader);
-    event OperatorSlashed(address indexed operator, uint256 amount);
-    event StakeUpdated(address indexed operator, uint256 amount);
-    event FundsWithdrawn(address indexed to, uint256 amount);
+contract EigenProtectedAVSHook is IEigenProtectedAVSHook, ReentrancyGuard, Pausable, Ownable {
+    using ProofVerification for IBrevisProof;
 
     // State variables
-    mapping(address => uint256) public operatorStakes;
-    mapping(address => uint256) public fraudCounts;
-    uint256 public constant SLASH_AMOUNT = 1 ether;
-    uint256 public constant MAX_FRAUD_COUNT = 3;
+    SystemConfig public immutable config;
+    IBrevisProof public immutable brevisProof;
+    IBrevisRequest public immutable brevisRequest;
+    IDelegationManager public immutable delegationManager;
+    
+    mapping(address => OperatorData) internal _operators;
+    
+    constructor(
+        address _config,
+        address _brevisProof,
+        address _brevisRequest,
+        address _delegationManager
+    ) Ownable(msg.sender) {
+        if (_config == address(0)) revert Errors.InvalidAddress();
+        if (_brevisProof == address(0)) revert Errors.InvalidAddress();
+        if (_brevisRequest == address(0)) revert Errors.InvalidAddress();
+        if (_delegationManager == address(0)) revert Errors.InvalidAddress();
 
-    constructor(IPoolManager _poolManager) Ownable(msg.sender) {
-        poolManager = _poolManager;
-        // Ensure contract address has correct flags
-        require(
-            hasPermission(BEFORE_SWAP_FLAG) &&
-            hasPermission(AFTER_SWAP_FLAG) &&
-            hasPermission(BEFORE_SWAP_RETURNS_DELTA_FLAG) &&
-            hasPermission(AFTER_SWAP_RETURNS_DELTA_FLAG),
-            "Invalid hook address"
-        );
+        config = SystemConfig(_config);
+        brevisProof = IBrevisProof(_brevisProof);
+        brevisRequest = IBrevisRequest(_brevisRequest);
+        delegationManager = IDelegationManager(_delegationManager);
     }
 
-    function hasPermission(uint160 flag) internal view returns (bool) {
-        return uint160(address(this)) & flag != 0;
+    function registerOperator() external override nonReentrant whenNotPaused {
+        if (_operators[msg.sender].isRegistered) revert Errors.AlreadyRegistered();
+        if (!delegationManager.isOperator(msg.sender)) revert Errors.UnauthorizedOperator();
+
+        _operators[msg.sender] = OperatorData({
+            stake: 0,
+            fraudCount: 0,
+            isRegistered: true
+        });
+
+        emit OperatorRegistered(msg.sender, 0);
     }
 
-    function beforeInitialize(address, PoolKey calldata, uint160) 
-        external 
-        pure 
-        returns (bytes4) 
-    {
-        return IHooks.beforeInitialize.selector;
+    function setOperatorStake() external payable override nonReentrant whenNotPaused {
+        if (!_operators[msg.sender].isRegistered) revert Errors.NotRegistered();
+        if (msg.value < config.minStake()) revert Errors.InsufficientStake();
+        if (msg.value > config.maxStake()) revert Errors.ExcessiveStake();
+
+        _operators[msg.sender].stake = uint128(msg.value);
+        emit StakeUpdated(msg.sender, msg.value);
     }
 
-    function afterInitialize(address, PoolKey calldata, uint160, int24)
-        external
-        pure
-        returns (bytes4)
-    {
-        return IHooks.afterInitialize.selector;
-    }
+    function verifyFraudProof(
+        address operator,
+        bytes32 proofId,
+        bytes calldata proofData
+    ) external override nonReentrant returns (bool) {
+        if (!_operators[operator].isRegistered) revert Errors.NotRegistered();
 
-    function beforeAddLiquidity(
-        address,
-        PoolKey calldata,
-        IPoolManager.ModifyLiquidityParams calldata,
-        bytes calldata
-    ) external pure returns (bytes4) {
-        return IHooks.beforeAddLiquidity.selector;
-    }
-
-    function afterAddLiquidity(
-        address,
-        PoolKey calldata,
-        IPoolManager.ModifyLiquidityParams calldata,
-        BalanceDelta,
-        BalanceDelta,
-        bytes calldata
-    ) external pure returns (bytes4, BalanceDelta) {
-        return (IHooks.afterAddLiquidity.selector, BalanceDelta.wrap(0));
-    }
-
-    function beforeRemoveLiquidity(
-        address,
-        PoolKey calldata,
-        IPoolManager.ModifyLiquidityParams calldata,
-        bytes calldata
-    ) external pure returns (bytes4) {
-        return IHooks.beforeRemoveLiquidity.selector;
-    }
-
-    function afterRemoveLiquidity(
-        address,
-        PoolKey calldata,
-        IPoolManager.ModifyLiquidityParams calldata,
-        BalanceDelta,
-        BalanceDelta,
-        bytes calldata
-    ) external pure returns (bytes4, BalanceDelta) {
-        return (IHooks.afterRemoveLiquidity.selector, BalanceDelta.wrap(0));
-    }
-
-    function beforeSwap(
-        address,
-        PoolKey calldata,
-        IPoolManager.SwapParams calldata,
-        bytes calldata
-    ) external returns (bytes4, BeforeSwapDelta, uint24) {
-        uint24 dynamicFee = uint24(calculateDynamicFee());
-        emit DynamicFeeUpdated(dynamicFee);
+        (bool isValid, string memory error) = brevisProof.verifyFraudProof(proofId, proofData);
         
-        return (IHooks.beforeSwap.selector, BeforeSwapDelta.wrap(0), dynamicFee);
-    }
-
-    function afterSwap(
-        address sender,
-        PoolKey calldata,
-        IPoolManager.SwapParams calldata params,
-        BalanceDelta,
-        bytes calldata
-    ) external returns (bytes4, int128) {
-        if (detectFraud(sender, params)) {
-            emit FraudDetected(sender);
-            penalize(sender);
+        if (!isValid) {
+            _operators[operator].fraudCount++;
+            if (_operators[operator].fraudCount >= config.maxFraudCount()) {
+                _slashOperator(operator);
+            }
         }
 
-        return (IHooks.afterSwap.selector, 0);
+        emit FraudProofVerified(operator, proofId, isValid, error);
+        return isValid;
     }
 
-    function beforeDonate(
-        address,
-        PoolKey calldata,
-        uint256,
-        uint256,
-        bytes calldata
-    ) external pure returns (bytes4) {
-        return IHooks.beforeDonate.selector;
+    function removeOperator(address operator) external override {
+        // Only allow self-removal or removal by governance
+        if (msg.sender != operator && msg.sender != owner()) revert Errors.UnauthorizedCaller();
+        if (!_operators[operator].isRegistered) revert Errors.NotRegistered();
+
+        delete _operators[operator];
+        emit OperatorRemoved(operator);
     }
 
-    function afterDonate(
-        address,
-        PoolKey calldata,
-        uint256,
-        uint256,
-        bytes calldata
-    ) external pure returns (bytes4) {
-        return IHooks.afterDonate.selector;
-    }
-
-    // Internal functions
-    function calculateDynamicFee() internal pure returns (uint256) {
-        uint256 fee = 30; // 0.3%
-        require(fee <= 10000, "Fee exceeds maximum");
-        return fee;
-    }
-
-    function detectFraud(address, IPoolManager.SwapParams calldata) internal pure returns (bool) {
-        // Implement sophisticated fraud detection logic
-        // For example:
-        // 1. Check for abnormal price movements
-        // 2. Check for suspicious trading patterns
-        // 3. Check for known malicious addresses
-        return false; // Placeholder
-    }
-
-    function penalize(address trader) internal nonReentrant {
-        fraudCounts[trader]++;
+    function _slashOperator(address operator) internal {
+        uint256 slashAmount = _operators[operator].stake * config.fraudPenalty() / 100;
+        _operators[operator].stake -= uint128(slashAmount);
+        _operators[operator].isRegistered = false;
         
-        if (fraudCounts[trader] >= MAX_FRAUD_COUNT) {
-            // Implement severe penalties for repeat offenders
-            slashOperator(trader);
-        }
+        // Transfer slashed amount to treasury/burn address
+        payable(address(0)).transfer(slashAmount);
         
-        emit TraderPenalized(trader);
+        emit OperatorRemoved(operator);
     }
 
-    function slashOperator(address operator) internal {
-        uint256 stakeAmount = operatorStakes[operator];
-        require(stakeAmount >= SLASH_AMOUNT, "Insufficient stake to slash");
-        
-        operatorStakes[operator] -= SLASH_AMOUNT;
-        emit OperatorSlashed(operator, SLASH_AMOUNT);
+    // Emergency functions
+    function pause() external {
+        if (msg.sender != owner()) revert Errors.UnauthorizedCaller();
+        _pause();
     }
 
-    // Owner functions
-    function setOperatorStake(address operator, uint256 amount) external onlyOwner {
-        require(operator != address(0), "Invalid operator address");
-        operatorStakes[operator] = amount;
-        emit StakeUpdated(operator, amount);
+    function unpause() external {
+        if (msg.sender != owner()) revert Errors.UnauthorizedCaller();
+        _unpause();
     }
 
-    function withdrawSlashedFunds(address to, uint256 amount) external onlyOwner {
-        require(to != address(0), "Invalid address");
-        require(amount > 0, "Invalid amount");
-        require(address(this).balance >= amount, "Insufficient balance");
-        
-        (bool success, ) = to.call{value: amount}("");
-        require(success, "Transfer failed");
-        
-        emit FundsWithdrawn(to, amount);
-    }
-
-    // Function to receive ETH
+    // Receive function to accept ETH
     receive() external payable {}
+
+    function operators(address operator) external view override returns (OperatorData memory) {
+        return _operators[operator];
+    }
 }

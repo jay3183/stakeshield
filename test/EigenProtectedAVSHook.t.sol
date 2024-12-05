@@ -1,20 +1,127 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Script} from "forge-std/Script.sol";
+import {Test} from "forge-std/Test.sol";
 import {EigenProtectedAVSHook} from "../src/EigenProtectedAVSHook.sol";
-import {IPoolManager} from "lib/v4-core/src/interfaces/IPoolManager.sol";
+import {SystemConfig} from "../src/config/SystemConfig.sol";
+import {MockBrevis} from "./mocks/MockBrevis.sol";
+import {MockEigenLayer} from "./mocks/MockEigenLayer.sol";
+import {Errors} from "../src/libraries/Errors.sol";
 
-contract DeployEigenProtectedAVSHook is Script {
-    function run() public {
-        vm.startBroadcast();
+contract EigenProtectedAVSHookTest is Test {
+    EigenProtectedAVSHook hook;
+    SystemConfig config;
+    MockBrevis brevis;
+    MockEigenLayer eigenLayer;
+    
+    address operator = address(0x1);
+    uint256 constant STAKE_AMOUNT = 1 ether;
+
+    function setUp() public {
+        // Deploy dependencies
+        config = new SystemConfig(
+            1 ether,     // minStake
+            100 ether,   // maxStake
+            50,          // fraudPenalty (50%)
+            3,           // maxFraudCount
+            7 days,      // unstakeDelay
+            100         // maxPriceImpact (1%)
+        );
         
-        // Deploy or get the PoolManager address first
-        address poolManagerAddress = address(0); // Replace with actual address
+        brevis = new MockBrevis();
+        eigenLayer = new MockEigenLayer();
         
-        // Deploy the hook
-        new EigenProtectedAVSHook(IPoolManager(poolManagerAddress));
-        
-        vm.stopBroadcast();
+        // Deploy main contract
+        hook = new EigenProtectedAVSHook(
+            address(config),
+            address(brevis),
+            address(brevis), // Using MockBrevis for both interfaces
+            address(eigenLayer)
+        );
+
+        // Setup operator
+        vm.deal(operator, 10 ether);
+        eigenLayer.setOperator(operator, true);
     }
+
+    function testRegisterOperator() public {
+        vm.startPrank(operator);
+        hook.registerOperator();
+        
+        (uint128 stake, uint128 fraudCount, bool isRegistered) = hook.operators(operator);
+        assertEq(stake, 0);
+        assertEq(fraudCount, 0);
+        assertTrue(isRegistered);
+        vm.stopPrank();
+    }
+
+    function testSetOperatorStake() public {
+        // Register operator first
+        vm.startPrank(operator);
+        hook.registerOperator();
+        
+        // Set stake
+        hook.setOperatorStake{value: 1 ether}();
+        
+        (uint128 stake,,) = hook.operators(operator);
+        assertEq(stake, 1 ether);
+        vm.stopPrank();
+    }
+
+    function testFraudProofVerification() public {
+        // Setup
+        vm.startPrank(operator);
+        hook.registerOperator();
+        hook.setOperatorStake{value: 1 ether}();
+        vm.stopPrank();
+
+        // Mock fraud proof verification
+        brevis.setProofValidity(true);
+        bytes32 proofId = keccak256("test-proof");
+        bytes memory proofData = "test-data";
+
+        bool result = hook.verifyFraudProof(operator, proofId, proofData);
+        assertTrue(result);
+        
+        // Verify operator state
+        (uint128 stake, uint128 fraudCount, bool isRegistered) = hook.operators(operator);
+        assertEq(stake, 1 ether);
+        assertEq(fraudCount, 0);
+        assertTrue(isRegistered);
+    }
+
+    function testSlashingAfterMaxFraudCount() public {
+        // Setup
+        vm.startPrank(operator);
+        hook.registerOperator();
+        hook.setOperatorStake{value: 1 ether}();
+        vm.stopPrank();
+
+        // Mock invalid proofs
+        brevis.setProofValidity(false);
+        bytes32 proofId = keccak256("test-proof");
+        bytes memory proofData = "test-data";
+
+        // Submit max fraud proofs
+        for (uint256 i = 0; i < config.maxFraudCount(); i++) {
+            hook.verifyFraudProof(operator, proofId, proofData);
+        }
+
+        // Verify operator is slashed
+        (uint128 stake,, bool isRegistered) = hook.operators(operator);
+        assertEq(stake, 0.5 ether); // 50% penalty
+        assertFalse(isRegistered);
+    }
+
+    function testRevertWhenUnauthorized() public {
+        address unauthorized = address(0x2);
+        vm.startPrank(unauthorized);
+        
+        vm.expectRevert(Errors.UnauthorizedOperator.selector);
+        hook.registerOperator();
+        
+        vm.stopPrank();
+    }
+
+    // Add more tests...
 }
