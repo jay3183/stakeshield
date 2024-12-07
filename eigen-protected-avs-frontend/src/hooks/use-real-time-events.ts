@@ -1,44 +1,59 @@
 'use client'
 
 import { useEffect } from 'react'
-import { usePublicClient, useContractEvent } from 'wagmi'
-import { CONTRACT_ADDRESSES } from '@/web3/constants'
+import { io } from 'socket.io-client'
+import { usePublicClient } from 'wagmi'
+import { HOLESKY_CONTRACTS } from '@/config/contracts'
 import { avsABI } from '@/web3/abis/avs'
 import { useNotifications } from './use-notifications'
+import { Log } from 'viem'
+
+interface OperatorUpdate {
+  operator: string
+  type: string
+}
+
+interface AVSEvent extends Log {
+  eventName: string
+}
 
 export function useRealTimeEvents() {
+  const publicClient = usePublicClient()
   const { addNotification } = useNotifications()
 
-  useContractEvent({
-    address: CONTRACT_ADDRESSES.EIGEN_PROTECTED_AVS[11155111],
-    abi: avsABI,
-    eventName: 'StakeUpdated',
-    listener(logs) {
-      const log = logs[0]
-      if (!log) return
-      addNotification({
-        type: 'success',
-        title: 'Stake Updated',
-        message: `New stake: ${log.args?.amount ?? 0} ETH`
-      })
-    }
-  })
+  useEffect(() => {
+    if (!publicClient) return
 
-  useContractEvent({
-    address: CONTRACT_ADDRESSES.EIGEN_PROTECTED_AVS[11155111],
-    abi: avsABI,
-    eventName: 'OperatorSlashed',
-    listener(logs) {
-      const log = logs[0]
-      if (!log) return
-      const operator = log.args?.operator ?? '0x'
-      addNotification({
-        type: 'error',
-        title: 'Operator Slashed',
-        message: `Operator ${operator.slice(0, 6)}...${operator.slice(-4)} was slashed`
-      })
-    }
-  })
+    const socket = io(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001')
+    
+    const unwatch = publicClient.watchContractEvent({
+      address: HOLESKY_CONTRACTS.avsHook,
+      abi: avsABI,
+      onLogs: (logs: Log[]) => {
+        for (const log of logs) {
+          const event: AVSEvent = {
+            ...log,
+            eventName: log.topics[0] || '0x0000000000000000000000000000000000000000000000000000000000000000'
+          }
+          
+          addNotification({
+            type: 'info',
+            message: `New event from AVS Hook: ${event.eventName || 'Unknown Event'}`
+          })
+        }
+      }
+    })
 
-  // Add more event listeners as needed
+    socket.on('operator:updated', (data: OperatorUpdate) => {
+      addNotification({
+        type: 'info',
+        message: `Operator ${data.operator.slice(0, 6)}...${data.operator.slice(-4)} ${data.type.toLowerCase()}`
+      })
+    })
+
+    return () => {
+      socket.disconnect()
+      unwatch()
+    }
+  }, [publicClient, addNotification])
 } 

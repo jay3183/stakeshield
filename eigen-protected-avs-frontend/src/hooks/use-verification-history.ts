@@ -3,50 +3,67 @@
 import { useState, useEffect } from 'react'
 import { usePublicClient } from 'wagmi'
 import { HOLESKY_CONTRACTS } from '@/config/contracts'
-import { fraudVerifierABI } from '@/web3/abis/fraud-verifier'
+import { avsABI } from '@/web3/abis/avs'
+import { Log } from 'viem'
 
-export type Verification = {
-  id: string
-  proofId: string
+export interface VerificationEvent {
   operator: string
+  proofId: string
   isValid: boolean
   timestamp: number
+  transactionHash: string
 }
 
-export function useVerificationHistory() {
-  const [verifications, setVerifications] = useState<Verification[]>([])
+interface FraudProofArgs {
+  operator: string
+  proofId: string
+  isValid: boolean
+  timestamp?: bigint
+}
+
+export function useVerificationHistory(operatorAddress?: string) {
+  const [history, setHistory] = useState<VerificationEvent[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const publicClient = usePublicClient()
 
   useEffect(() => {
-    if (!publicClient) return
+    async function fetchHistory() {
+      if (!publicClient || !operatorAddress) return
 
-    const fetchVerifications = async () => {
       try {
-        const logs = await publicClient.getLogs({
-          address: HOLESKY_CONTRACTS.fraudVerifier,
-          events: [fraudVerifierABI[1]], // FraudProofVerified event
+        const logs = await publicClient.getContractEvents({
+          address: HOLESKY_CONTRACTS.eigenLayer.hooks,
+          abi: avsABI,
+          eventName: 'FraudProofVerified',
           fromBlock: 'earliest'
         })
 
-        const processedVerifications = logs.map((log) => ({
-          id: `${log.transactionHash}-${log.logIndex}`,
-          proofId: (log as any).args.proofId,
-          operator: (log as any).args.operator,
-          isValid: (log as any).args.isValid,
-          timestamp: Number((log as any).timestamp)
-        }))
+        const events = logs
+          .filter(log => {
+            const args = log.args as unknown as FraudProofArgs
+            return args.operator === operatorAddress
+          })
+          .map(log => {
+            const args = log.args as unknown as FraudProofArgs
+            return {
+              operator: args.operator,
+              proofId: args.proofId,
+              isValid: args.isValid,
+              timestamp: Number(args.timestamp || 0n),
+              transactionHash: log.transactionHash || ''
+            }
+          })
 
-        setVerifications(processedVerifications)
+        setHistory(events)
       } catch (error) {
-        console.error('Error fetching verifications:', error)
+        console.error('Failed to fetch verification history:', error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchVerifications()
-  }, [publicClient])
+    fetchHistory()
+  }, [publicClient, operatorAddress])
 
-  return { verifications, isLoading }
+  return { history, isLoading }
 } 

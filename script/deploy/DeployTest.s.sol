@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.23;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {EigenProtectedAVSHook} from "../../src/EigenProtectedAVSHook.sol";
@@ -18,14 +18,12 @@ contract DeployTest is Script {
         MockEigenLayer eigenLayer = new MockEigenLayer();
         MockBrevis brevis = new MockBrevis();
 
-        // Deploy hook
+        // Deploy hook with 4 arguments instead of 6
         EigenProtectedAVSHook hook = new EigenProtectedAVSHook(
-            IPoolManager(address(poolManager)),
-            address(brevis),
-            address(eigenLayer),
-            address(brevis),
-            address(brevis),
-            address(eigenLayer)
+            address(poolManager),      // config address
+            address(brevis),          // brevis proof address
+            address(brevis),          // brevis request address
+            address(eigenLayer)       // delegation manager address
         );
 
         console2.log("Contracts deployed:");

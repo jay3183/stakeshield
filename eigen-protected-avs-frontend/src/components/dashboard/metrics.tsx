@@ -1,34 +1,45 @@
 'use client'
 
-import { Card } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { useAVSContract } from '@/hooks/use-avs-contract'
 import { formatEther } from 'viem'
 
 export function DashboardMetrics() {
-  const { operatorData, isLoading } = useAVSContract()
-  const [stake = 0n, fraudCount = 0n, isRegistered = false] = operatorData ?? [0n, 0n, false]
-
-  if (isLoading) return <div>Loading...</div>
+  const { operatorData } = useAVSContract()
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-medium">Current Stake</h3>
-          <p className="mt-2 text-2xl font-bold">{formatEther(stake)} ETH</p>
-        </div>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Total Stake</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">
+            {operatorData ? formatEther(operatorData.stake) : '0'} ETH
+          </div>
+        </CardContent>
       </Card>
+
       <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-medium">Fraud Count</h3>
-          <p className="mt-2 text-2xl font-bold">{fraudCount.toString()}</p>
-        </div>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Fraud Count</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">
+            {operatorData?.fraudCount?.toString() || '0'}
+          </div>
+        </CardContent>
       </Card>
+
       <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-medium">Status</h3>
-          <p className="mt-2 text-2xl font-bold">{isRegistered ? 'Active' : 'Inactive'}</p>
-        </div>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Status</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">
+            {operatorData?.isRegistered ? 'Active' : 'Inactive'}
+          </div>
+        </CardContent>
       </Card>
     </div>
   )

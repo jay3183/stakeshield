@@ -1,80 +1,67 @@
 'use client';
 
-import { useAccount, usePublicClient } from 'wagmi';
-import { avsABI } from '@/web3/abis/avs';
-import { HOLESKY_CONTRACTS } from '@/config/contracts';
-import { useReadContract, useWriteContract } from 'wagmi';
-import { Hash, parseEther } from 'viem'
-import { toast } from 'sonner'
+import { useCallback, useState, useEffect } from 'react'
+import { useWriteContract, useAccount, usePublicClient } from 'wagmi'
+import { parseEther } from 'viem'
+import { HOLESKY_CONTRACTS } from '@/web3/constants'
+import { WETHABI } from '../web3/abis/weth'
+import { StrategyManagerABI } from '../web3/abis/strategy-manager'
+
+export interface OperatorData {
+  stake: bigint
+  fraudCount: bigint
+  isRegistered: boolean
+}
 
 export function useAVSContract() {
-  const { address } = useAccount();
-  const publicClient = usePublicClient();
-  const { writeContractAsync, isPending: isWritePending } = useWriteContract();
+  const { address } = useAccount()
+  const publicClient = usePublicClient()
+  const { writeContract } = useWriteContract()
+  const [isLoadingOperator, setIsLoadingOperator] = useState(false)
 
-  // Read operator data
-  const { data: operatorData, isLoading, refetch } = useReadContract({
-    address: HOLESKY_CONTRACTS.avsHook,
-    abi: avsABI,
-    functionName: 'operators',
-    args: address ? [address as `0x${string}`] : undefined,
-    query: {
-      enabled: !!address
-    }
-  });
-
-  // Register operator
-  const registerOperator = async () => {
-    if (!address) throw new Error('Wallet not connected');
-
-    const hash = await writeContractAsync({
-      address: HOLESKY_CONTRACTS.avsHook,
-      abi: avsABI,
-      functionName: 'registerOperator',
-      args: []
-    });
-
-    return hash;
-  };
-
-  // Set stake
-  const stake = async (amount: string) => {
-    if (!address) throw new Error('Wallet not connected');
+  const setStake = useCallback(async (amount: string) => {
+    if (!address || !publicClient) throw new Error('Wallet not connected')
+    setIsLoadingOperator(true)
     
-    const value = parseEther(amount);
-    const hash = await writeContractAsync({
-      address: HOLESKY_CONTRACTS.avsHook,
-      abi: avsABI,
-      functionName: 'setOperatorStake',
-      value
-    });
+    try {
+      // 1. Wrap ETH to WETH
+      const wrapTx = await writeContract({
+        address: HOLESKY_CONTRACTS.eigenLayer.weth,
+        abi: WETHABI,
+        functionName: 'deposit',
+        value: parseEther(amount)
+      }) as unknown as `0x${string}`
+      await publicClient.waitForTransactionReceipt({ hash: wrapTx })
 
-    return hash;
-  };
+      // 2. Approve WETH spending
+      const approveTx = await writeContract({
+        address: HOLESKY_CONTRACTS.eigenLayer.weth,
+        abi: WETHABI,
+        functionName: 'approve',
+        args: [HOLESKY_CONTRACTS.eigenLayer.strategyManager, parseEther(amount)]
+      }) as unknown as `0x${string}`
+      await publicClient.waitForTransactionReceipt({ hash: approveTx })
 
-  // Remove operator
-  const removeOperator = async (operatorAddress: string) => {
-    if (!address) throw new Error('Wallet not connected');
+      // 3. Deposit into strategy
+      const stakeTx = await writeContract({
+        address: HOLESKY_CONTRACTS.eigenLayer.strategyManager,
+        abi: StrategyManagerABI,
+        functionName: 'depositIntoStrategy',
+        args: [
+          HOLESKY_CONTRACTS.eigenLayer.wethStrategy,
+          HOLESKY_CONTRACTS.eigenLayer.weth,
+          parseEther(amount)
+        ]
+      }) as unknown as `0x${string}`
+      await publicClient.waitForTransactionReceipt({ hash: stakeTx })
 
-    const hash = await writeContractAsync({
-      address: HOLESKY_CONTRACTS.avsHook,
-      abi: avsABI,
-      functionName: 'removeOperator',
-      args: [operatorAddress as `0x${string}`]
-    });
-
-    return hash;
-  };
+    } finally {
+      setIsLoadingOperator(false)
+    }
+  }, [address, publicClient, writeContract])
 
   return {
-    operatorData,
-    isLoading,
-    registerOperator,
-    removeOperator,
-    stake,
-    refetch,
-    isRegistering: isWritePending,
-    isStaking: isWritePending,
-    isRemoving: isWritePending
-  };
+    setStake,
+    isLoadingOperator
+  }
 }

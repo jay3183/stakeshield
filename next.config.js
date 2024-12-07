@@ -2,25 +2,18 @@
 const nextConfig = {
   reactStrictMode: true,
   webpack: (config) => {
-    return config
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
+    config.module = {
+      ...config.module,
+      exprContextCritical: false,
+    };
+    return config;
   },
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'X-UA-Compatible',
-            value: 'IE=edge',
-          },
-          {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin'
-          }
-        ],
-      },
-    ]
-  }
-}
+};
 
-module.exports = nextConfig 
+module.exports = nextConfig; 

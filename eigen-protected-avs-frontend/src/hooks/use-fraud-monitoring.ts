@@ -1,19 +1,33 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { usePublicClient } from 'wagmi'
 import { HOLESKY_CONTRACTS } from '@/config/contracts'
 import { avsABI } from '@/web3/abis/avs'
-import { brevisProofABI } from '@/web3/abis/brevis-proof'
-import { toast } from 'sonner'
 import { Log } from 'viem'
+import toast from 'react-hot-toast'
+import { WarningToast } from '@/components/toast/WarningToast'
+import { createElement } from 'react'
 
-export type FraudEvent = {
+export interface FraudEvent {
   operator: string
   proofId: string
   timestamp: number
-  verified: boolean
+  isValid: boolean
   details?: string
+}
+
+interface FraudProofArgs {
+  operator: string
+  proofId: string
+  isValid: boolean
+  timestamp?: bigint
+}
+
+// Add type for contract event logs
+interface ContractEventLog {
+  args: FraudProofArgs
+  transactionHash: string
 }
 
 export function useFraudMonitoring() {
@@ -21,43 +35,72 @@ export function useFraudMonitoring() {
   const [isLoading, setIsLoading] = useState(true)
   const publicClient = usePublicClient()
 
-  // Watch for fraud detection events
   useEffect(() => {
     if (!publicClient) return
 
+    async function fetchEvents() {
+      if (!publicClient) return
+      
+      try {
+        const logs = await publicClient.getContractEvents({
+          address: HOLESKY_CONTRACTS.avsHook,
+          abi: avsABI,
+          eventName: 'FraudProofVerified',
+          fromBlock: 'earliest'
+        })
+
+        const events = (logs as unknown as ContractEventLog[]).map(log => {
+          return {
+            operator: log.args.operator,
+            proofId: log.args.proofId,
+            isValid: log.args.isValid,
+            timestamp: Number(log.args.timestamp || 0n),
+            details: `Fraud proof ${log.args.isValid ? 'verified' : 'rejected'} for operator ${log.args.operator.slice(0, 6)}...`
+          }
+        })
+
+        setFraudEvents(events)
+      } catch (error) {
+        console.error('Failed to fetch fraud events:', error)
+        toast.error('Failed to fetch fraud events')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    // Watch for new fraud events
     const unwatch = publicClient.watchContractEvent({
       address: HOLESKY_CONTRACTS.avsHook,
       abi: avsABI,
-      eventName: 'FraudDetected',
-      onLogs: async (logs: Log[]) => {
-        const newEvents = await Promise.all(
-          logs.map(async (log: any) => {
-            const [operator, proofId] = log.args as [string, string]
-            
-            // Verify the fraud proof
-            const isValid = await publicClient.readContract({
-              address: HOLESKY_CONTRACTS.brevisProof,
-              abi: brevisProofABI,
-              functionName: 'verifyFraudProof',
-              args: [proofId as `0x${string}`, operator as `0x${string}`]
-            })
+      eventName: 'FraudProofVerified',
+      onLogs: (logs) => {
+        const newEvents = (logs as unknown as ContractEventLog[]).map(log => {
+          const event: FraudEvent = {
+            operator: log.args.operator,
+            proofId: log.args.proofId,
+            isValid: log.args.isValid,
+            timestamp: Number(log.args.timestamp || 0n),
+            details: `Fraud proof ${log.args.isValid ? 'verified' : 'rejected'} for operator ${log.args.operator.slice(0, 6)}...`
+          }
 
-            const event: FraudEvent = {
-              operator,
-              proofId,
-              timestamp: Number(log.blockTimestamp),
-              verified: isValid,
-              details: `Fraud detected for operator ${operator.slice(0, 6)}...`
-            }
-
-            toast.error(event.details)
-            return event
-          })
-        )
+          if (log.args.isValid) {
+            toast.error(event.details || 'Fraud detected')
+          } else {
+            toast.custom(
+              createElement(WarningToast, { 
+                message: event.details || 'Fraud proof rejected' 
+              }), 
+              { duration: 5000 }
+            )
+          }
+          return event
+        })
 
         setFraudEvents(prev => [...newEvents, ...prev])
       }
     })
+
+    fetchEvents()
 
     return () => {
       unwatch()

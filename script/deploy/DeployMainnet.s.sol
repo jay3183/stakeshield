@@ -1,33 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.23;
 
 import {Script} from "forge-std/Script.sol";
-import {console} from "forge-std/console.sol";
 import {EigenProtectedAVSHook} from "../../src/EigenProtectedAVSHook.sol";
-import {IPoolManager} from "lib/v4-core/src/interfaces/IPoolManager.sol";
 
 contract DeployMainnet is Script {
     function run() public {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address poolManager = vm.envAddress("POOL_MANAGER");
-        address eigenLayer = vm.envAddress("EIGEN_LAYER");
-        address brevis = vm.envAddress("BREVIS");
-        address brevisProof = vm.envAddress("BREVIS_PROOF");
-        address brevisRequest = vm.envAddress("BREVIS_REQUEST");
-        address delegationManager = vm.envAddress("DELEGATION_MANAGER");
-
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         EigenProtectedAVSHook hook = new EigenProtectedAVSHook(
-            IPoolManager(poolManager),
-            brevis,
-            eigenLayer,
-            brevisProof,
-            brevisRequest,
-            delegationManager
+            vm.envAddress("CONFIG_ADDRESS"),
+            vm.envAddress("BREVIS_PROOF_ADDRESS"),
+            vm.envAddress("BREVIS_REQUEST_ADDRESS"),
+            vm.envAddress("DELEGATION_MANAGER_ADDRESS")
         );
 
-        console.log("Deployed to:", address(hook));
         vm.stopBroadcast();
     }
 } 

@@ -1,13 +1,22 @@
-import { useEffect, useState } from 'react'
-import { usePublicClient } from 'wagmi'
-import { avsABI } from '@/web3/abis/avs'
-import { CONTRACT_ADDRESSES } from '@/web3/constants'
+'use client'
 
-type StakeEvent = {
+import { useState, useEffect } from 'react'
+import { usePublicClient } from 'wagmi'
+import { HOLESKY_CONTRACTS } from '@/config/contracts'
+import { avsABI } from '@/web3/abis/avs'
+import { Log } from 'viem'
+
+export interface StakeEvent {
   operator: string
   amount: bigint
   timestamp: number
   transactionHash: string
+}
+
+interface StakeUpdateArgs {
+  operator: string
+  amount: bigint
+  timestamp?: bigint
 }
 
 export function useStakeHistory(operatorAddress?: string) {
@@ -17,29 +26,30 @@ export function useStakeHistory(operatorAddress?: string) {
 
   useEffect(() => {
     async function fetchHistory() {
-      if (!operatorAddress) return
+      if (!publicClient || !operatorAddress) return
 
       try {
-        const logs = await publicClient.getLogs({
-          address: CONTRACT_ADDRESSES.EIGEN_PROTECTED_AVS[11155111],
-          event: avsABI.find(x => x.name === 'StakeUpdated'),
-          args: {
-            operator: operatorAddress
-          },
-          fromBlock: 0n
+        const logs = await publicClient.getContractEvents({
+          address: HOLESKY_CONTRACTS.eigenLayer.hooks,
+          abi: avsABI,
+          eventName: 'StakeUpdated',
+          fromBlock: 'earliest'
         })
 
-        const events = await Promise.all(
-          logs.map(async log => {
-            const block = await publicClient.getBlock({ blockHash: log.blockHash })
+        const events = logs
+          .filter(log => {
+            const args = log.args as unknown as StakeUpdateArgs
+            return args.operator === operatorAddress
+          })
+          .map(log => {
+            const args = log.args as unknown as StakeUpdateArgs
             return {
-              operator: log.args.operator,
-              amount: log.args.amount,
-              timestamp: Number(block.timestamp),
-              transactionHash: log.transactionHash
+              operator: args.operator,
+              amount: args.amount,
+              timestamp: Number(args.timestamp || 0n),
+              transactionHash: log.transactionHash || ''
             }
           })
-        )
 
         setHistory(events)
       } catch (error) {
@@ -50,7 +60,7 @@ export function useStakeHistory(operatorAddress?: string) {
     }
 
     fetchHistory()
-  }, [operatorAddress, publicClient])
+  }, [publicClient, operatorAddress])
 
   return { history, isLoading }
 } 

@@ -1,3 +1,4 @@
+import { NextRequest, NextResponse } from 'next/server'
 import { createPublicClient, http } from 'viem'
 import { sepolia } from 'viem/chains'
 
@@ -14,17 +15,19 @@ const CHAINLINK_DECIMALS = {
 }
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { address: string } }
 ) {
   try {
+    const address = params.address
+
     // Validate address
-    if (!params.address || !(params.address in CHAINLINK_DECIMALS)) {
-      return Response.json({ error: 'Invalid price feed address' }, { status: 400 })
+    if (!address || !(address in CHAINLINK_DECIMALS)) {
+      return NextResponse.json({ error: 'Invalid price feed address' }, { status: 400 })
     }
 
     const roundData = await client.readContract({
-      address: params.address as `0x${string}`,
+      address: address as `0x${string}`,
       abi: [{
         inputs: [],
         name: "latestRoundData",
@@ -46,16 +49,13 @@ export async function GET(
       throw new Error('Invalid price feed response')
     }
 
-    return Response.json({
+    return NextResponse.json({
       price: roundData[1].toString(),
       timestamp: Number(roundData[3]),
-      decimals: CHAINLINK_DECIMALS[params.address as keyof typeof CHAINLINK_DECIMALS]
+      decimals: CHAINLINK_DECIMALS[address as keyof typeof CHAINLINK_DECIMALS]
     })
   } catch (error) {
     console.error('Failed to fetch price feed:', error)
-    return Response.json({ 
-      error: 'Failed to fetch price feed',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch price feed' }, { status: 500 })
   }
 } 

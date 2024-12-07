@@ -1,7 +1,18 @@
 export const avsABI = [
   {
-    inputs: [{ name: 'operator', type: 'address' }],
-    name: 'removeOperator',
+    inputs: [
+      {
+        components: [
+          { name: '__deprecated_earningsReceiver', type: 'address' },
+          { name: 'delegationApprover', type: 'address' },
+          { name: 'stakerOptOutWindowBlocks', type: 'uint256' }
+        ],
+        name: 'registeringOperatorDetails',
+        type: 'tuple'
+      },
+      { name: 'metadataURI', type: 'string' }
+    ],
+    name: 'registerAsOperator',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function'
@@ -14,10 +25,14 @@ export const avsABI = [
     type: 'function'
   },
   {
-    inputs: [],
-    name: 'registerOperator',
-    outputs: [],
-    stateMutability: 'nonpayable',
+    inputs: [{ name: 'operator', type: 'address' }],
+    name: 'operators',
+    outputs: [
+      { name: 'stake', type: 'uint256' },
+      { name: 'fraudCount', type: 'uint256' },
+      { name: 'isRegistered', type: 'bool' }
+    ],
+    stateMutability: 'view',
     type: 'function'
   }
 ] as const

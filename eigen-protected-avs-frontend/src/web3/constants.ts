@@ -1,28 +1,14 @@
-// Chain IDs
-export const SUPPORTED_CHAINS = {
-    SEPOLIA: 11155111
-  } as const
-  
-  // Contract addresses for different networks
-  export const CONTRACT_ADDRESSES = {
-    EIGEN_PROTECTED_AVS: {
-      11155111: '0x369E10Bb2ECaCA0eF3e9C3B6194871Fb620E14E0'
-    }
-  } as const
-  
-  // App configuration
-  export const APP_CONFIG = {
-    NAME: 'EigenProtected AVS',
-    DESCRIPTION: 'Your app description',
-    DEFAULT_CHAIN: SUPPORTED_CHAINS.SEPOLIA
-  } as const
-  
-  // Export contract address directly
-  export const AVS_CONTRACT_ADDRESS = CONTRACT_ADDRESSES.EIGEN_PROTECTED_AVS[11155111]
-  
-  // RPC URLs for different networks
-  export const RPC_URLS = {
-    [SUPPORTED_CHAINS.SEPOLIA]: 'https://sepolia.infura.io/v3/443b5049e92748ffba59d71a5972c0e2'
+export const HOLESKY_CONTRACTS = {
+  eigenLayer: {
+    delegationManager: '0xa44151489861fe9e3055d95adc98fbd462b948e7',
+    strategyManager: '0xdfb5f6ce42aaa7830e94ecfccad411bef4d4d5b6',
+    weth: '0x94373a4919b3240d86ea41593d5eba789fef3848',
+    wethStrategy: '0x80528d6e9a2babfc766965e0e26d5ab08d9cfaf9'
   }
+} as const;
 
-  
+export const CONTRACT_ADDRESSES = {
+  EIGEN_PROTECTED_AVS: {
+    11155111: '0xa44151489861fe9e3055d95adc98fbd462b948e7'  // Holesky testnet
+  }
+} as const; 

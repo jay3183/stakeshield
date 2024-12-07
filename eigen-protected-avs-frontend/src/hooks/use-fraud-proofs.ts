@@ -1,47 +1,48 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { toast } from 'sonner'
+import { useState } from 'react'
+import { usePublicClient, useContractWrite } from 'wagmi'
+import { HOLESKY_CONTRACTS } from '@/config/contracts'
+import { avsABI } from '@/web3/abis/avs'
+import { toast } from 'react-hot-toast'
 
-export type FraudProof = {
-  id: string
-  proofId: string
-  isValid: boolean
-  timestamp: string
-  operator: {
-    address: string
-  }
+export interface FraudProof {
+  proofId: `0x${string}`
+  operator: `0x${string}`
+  evidence: `0x${string}`
+  timestamp: number
 }
 
 export function useFraudProofs() {
-  const [proofs, setProofs] = useState<FraudProof[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const publicClient = usePublicClient()
+  const { writeContractAsync } = useContractWrite()
 
-  const fetchProofs = async () => {
+  const submitProof = async (proof: FraudProof) => {
+    if (!publicClient) throw new Error('No provider available')
+    setIsSubmitting(true)
+
     try {
-      const response = await fetch('/api/fraud-proofs')
-      const data = await response.json()
+      const hash = await writeContractAsync({
+        address: HOLESKY_CONTRACTS.eigenLayer.hooks,
+        abi: avsABI,
+        functionName: 'verifyFraudProof',
+        args: [proof.operator, proof.proofId, proof.evidence]
+      })
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch fraud proofs')
-      }
-
-      setProofs(data.proofs)
+      await publicClient.waitForTransactionReceipt({ hash })
+      toast.success('Fraud proof submitted successfully')
     } catch (error) {
-      console.error('Error fetching fraud proofs:', error)
-      toast.error('Failed to load fraud proofs')
+      console.error('Failed to submit fraud proof:', error)
+      toast.error('Failed to submit fraud proof')
+      throw error
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
-  useEffect(() => {
-    fetchProofs()
-  }, [])
-
   return {
-    proofs,
-    isLoading,
-    refetch: fetchProofs
+    submitProof,
+    isSubmitting
   }
 } 

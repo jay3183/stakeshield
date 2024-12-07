@@ -3,6 +3,6 @@ pragma solidity ^0.8.23;
 
 struct OperatorData {
     uint128 stake;
-    uint32 fraudCount;
+    uint128 fraudCount;
     bool isRegistered;
-} 
+}

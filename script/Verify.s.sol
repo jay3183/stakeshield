@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.23;
 
 import {Script} from "forge-std/Script.sol";
-import {Networks} from "./config/Networks.s.sol";
 
-contract Verify is Script, Networks {
+contract Verify is Script {
     function run() public {
         uint256 chainId = block.chainid;
         address contractAddress = vm.envAddress("DEPLOYED_ADDRESS");

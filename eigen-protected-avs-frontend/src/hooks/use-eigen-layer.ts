@@ -1,34 +1,49 @@
-import { usePublicClient, useAccount, useWriteContract } from 'wagmi'
+import { useContractWrite, useContractRead, useAccount, usePublicClient } from 'wagmi'
 import { contracts } from '@/web3/config'
-import { eigenLayerABI } from '@/web3/abis/eigen-layer'
+import { eigenLayerHooksABI } from '@/web3/abis/eigen-layer-hooks'
+
+interface RegisterOperatorParams {
+  earningsReceiver: `0x${string}`
+  delegationApprover: `0x${string}` | ''
+  stakerOptOutWindowBlocks: bigint
+  metadataURI: string
+}
 
 export function useEigenLayer() {
   const { address } = useAccount()
+  const { writeContractAsync } = useContractWrite()
   const publicClient = usePublicClient()
-  const { writeContractAsync } = useWriteContract()
 
-  const getOperatorStatus = async (operatorAddress: string) => {
+  const registerAsOperator = async (params: RegisterOperatorParams) => {
+    if (!address) throw new Error('Wallet not connected')
     if (!publicClient) throw new Error('No provider available')
-    return publicClient.readContract({
-      address: contracts.eigenLayer.address,
-      abi: eigenLayerABI,
-      functionName: 'getOperatorStatus',
-      args: [operatorAddress as `0x${string}`]
+
+    const hash = await writeContractAsync({
+      address: contracts.eigenLayer.hooks,
+      abi: eigenLayerHooksABI,
+      functionName: 'registerOperatorWithHooks',
+      args: [
+        {
+          earningsReceiver: params.earningsReceiver,
+          delegationApprover: params.delegationApprover || '0x0000000000000000000000000000000000000000',
+          stakerOptOutWindowBlocks: Number(params.stakerOptOutWindowBlocks)
+        },
+        params.metadataURI
+      ]
     })
+
+    return publicClient.waitForTransactionReceipt({ hash })
   }
 
-  const getOperatorStake = async (operatorAddress: string) => {
-    if (!publicClient) throw new Error('No provider available')
-    return publicClient.readContract({
-      address: contracts.eigenLayer.address,
-      abi: eigenLayerABI,
-      functionName: 'getOperatorStake',
-      args: [operatorAddress as `0x${string}`]
-    })
-  }
+  const { data: isRegistered } = useContractRead({
+    address: contracts.eigenLayer.delegationManager,
+    abi: eigenLayerHooksABI,
+    functionName: 'isOperator',
+    args: address ? [address] : undefined,
+  })
 
   return {
-    getOperatorStatus,
-    getOperatorStake
+    registerAsOperator,
+    isRegistered: !!isRegistered
   }
 } 

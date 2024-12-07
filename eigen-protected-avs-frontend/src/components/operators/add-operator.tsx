@@ -2,7 +2,9 @@
 
 import { useState } from 'react'
 import { Modal } from '../ui/modal'
-import { useAccount } from 'wagmi'
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
+import { HOLESKY_CONTRACTS } from '@/config/contracts'
+import { DelegationManagerABI } from '@/config/abis'
 
 interface AddOperatorProps {
   isOpen: boolean
@@ -14,14 +16,46 @@ export function AddOperator({ isOpen, onClose, onAdd }: AddOperatorProps) {
   const [address, setAddress] = useState('')
   const [stake, setStake] = useState('')
   const [loading, setLoading] = useState(false)
-  const { isConnected } = useAccount()
+  const { isConnected, address: connectedAddress } = useAccount()
+  const publicClient = usePublicClient()
+  const { data: walletClient } = useWalletClient()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!isConnected) return
+    if (!isConnected || !walletClient || !connectedAddress) return
     
     setLoading(true)
     try {
+      if (!publicClient) return
+
+      // First check if address is already an operator
+      const isOperator = await publicClient.readContract({
+        address: HOLESKY_CONTRACTS.eigenLayer.delegationManager,
+        abi: DelegationManagerABI.abi,
+        functionName: 'isOperator',
+        args: [address as `0x${string}`]
+      })
+
+      if (!isOperator) {
+        // Register as operator first
+        const operatorDetails = {
+          earningsReceiver: address as `0x${string}`,
+          delegationApprover: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+          stakerOptOutWindowBlocks: 0n
+        } as const
+
+        const tx = await walletClient.writeContract({
+          address: HOLESKY_CONTRACTS.eigenLayer.delegationManager,
+          abi: DelegationManagerABI.abi,
+          functionName: 'registerAsOperator',
+          args: [operatorDetails, '']
+        })
+
+        // Wait for transaction confirmation
+        await publicClient.waitForTransactionReceipt({ hash: tx })
+      }
+
+      // Now add stake
       await onAdd(address, stake)
       onClose()
     } catch (error) {
@@ -70,7 +104,7 @@ export function AddOperator({ isOpen, onClose, onAdd }: AddOperatorProps) {
             disabled={loading || !isConnected}
             className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
           >
-            {loading ? 'Adding...' : 'Add Operator'}
+            {loading ? 'Registering...' : 'Register & Add Stake'}
           </button>
         </div>
       </form>

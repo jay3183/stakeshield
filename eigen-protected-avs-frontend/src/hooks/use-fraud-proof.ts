@@ -1,61 +1,31 @@
 'use client'
 
-import { useState } from 'react'
-import { usePublicClient, useAccount } from 'wagmi'
+import { useCallback, useState } from 'react'
+import { usePublicClient, useContractWrite, useWriteContract } from 'wagmi'
 import { HOLESKY_CONTRACTS } from '@/config/contracts'
-import { brevisProofABI } from '@/web3/abis/brevis-proof'
-import { toast } from 'sonner'
+import { avsABI } from '@/web3/abis/avs'
+import { toast } from 'react-hot-toast'
 
 export function useFraudProof() {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
   const publicClient = usePublicClient()
-  const { address } = useAccount()
+  const { writeContract } = useWriteContract()
 
-  const submitProof = async (operatorAddress: string, proof: string) => {
-    if (!address || !publicClient) return
-
-    try {
-      setIsSubmitting(true)
-
-      const isValid = await publicClient.readContract({
-        address: HOLESKY_CONTRACTS.brevisProof,
-        abi: brevisProofABI,
-        functionName: 'verifyFraudProof',
-        args: [proof as `0x${string}`, operatorAddress as `0x${string}`]
-      })
-
-      if (!isValid) {
-        throw new Error('Invalid fraud proof')
-      }
-
-      // Submit to backend for processing
-      const response = await fetch('/api/fraud-proofs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          operator: operatorAddress,
-          proof,
-          submitter: address 
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to submit proof')
-      }
-
-      toast.success('Fraud proof submitted successfully')
-      return true
-    } catch (error) {
-      console.error('Proof submission error:', error)
-      toast.error('Failed to submit fraud proof')
-      return false
-    } finally {
-      setIsSubmitting(false)
-    }
+  const verifyFraudProof = async (
+    operator: `0x${string}`, 
+    proofId: `0x${string}`, 
+    proofData: `0x${string}`
+  ) => {
+    return writeContract({
+      address: HOLESKY_CONTRACTS.avsHook as `0x${string}`,
+      abi: avsABI,
+      functionName: 'verifyFraudProof',
+      args: [operator, proofId, proofData]
+    })
   }
 
   return {
-    submitProof,
-    isSubmitting
+    verifyFraudProof,
+    isVerifying
   }
 } 

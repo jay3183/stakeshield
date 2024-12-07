@@ -6,6 +6,11 @@ import "../../src/interfaces/IBrevisProof.sol";
 contract MockBrevis is IBrevisProof {
     mapping(bytes32 => VerificationState) private proofStates;
     mapping(bytes32 => string) private proofErrors;
+    bool private proofValidity;
+
+    function setProofValidity(bool validity) external {
+        proofValidity = validity;
+    }
 
     function verifyFraudProof(
         bytes32 proofId,
@@ -31,7 +36,7 @@ contract MockBrevis is IBrevisProof {
         }
 
         proofStates[proofId] = VerificationState.VERIFIED;
-        return (true, "");
+        return (proofValidity, "");
     }
 
     function getProofState(bytes32 proofId) external view override returns (VerificationState) {

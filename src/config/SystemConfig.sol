@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.23;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract SystemConfig is Ownable {
-    // System parameters
     uint256 public minStake;
     uint256 public maxStake;
     uint256 public fraudPenalty;
@@ -59,4 +58,4 @@ contract SystemConfig is Ownable {
         maxPriceImpact = _maxPriceImpact;
         emit ConfigUpdated("maxPriceImpact", _maxPriceImpact);
     }
-} 
+}
