@@ -1,5 +1,5 @@
 import { usePublicClient } from 'wagmi'
-import { contracts } from '@/web3/config'
+import { contracts } from '../config/config'
 import { brevisABI } from '@/web3/abis/brevis'
 
 export function useBrevis() {

@@ -1,67 +1,115 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react'
-import { useWriteContract, useAccount, usePublicClient } from 'wagmi'
+import { useCallback, useState } from 'react'
+import { useAccount, usePublicClient, useWriteContract } from 'wagmi'
 import { parseEther } from 'viem'
-import { HOLESKY_CONTRACTS } from '@/web3/constants'
-import { WETHABI } from '../web3/abis/weth'
+import { contracts } from '@/web3/config'
+import { DelegationManagerABI } from '../web3/abis/delegation-manager'
 import { StrategyManagerABI } from '../web3/abis/strategy-manager'
+import { WETHABI } from '../web3/abis/weth'
+
+interface StakeDataPoint {
+  timestamp: number
+  value: number
+}
 
 export interface OperatorData {
   stake: bigint
-  fraudCount: bigint
   isRegistered: boolean
 }
 
 export function useAVSContract() {
   const { address } = useAccount()
   const publicClient = usePublicClient()
-  const { writeContract } = useWriteContract()
-  const [isLoadingOperator, setIsLoadingOperator] = useState(false)
+  const { writeContractAsync } = useWriteContract()
+  const [isLoading, setIsLoading] = useState(false)
+  const [operatorData, setOperatorData] = useState<OperatorData | null>(null)
+  const [totalStaked, setTotalStaked] = useState<bigint>(BigInt(0))
+  const [operatorCount, setOperatorCount] = useState<number>(0)
 
-  const setStake = useCallback(async (amount: string) => {
-    if (!address || !publicClient) throw new Error('Wallet not connected')
-    setIsLoadingOperator(true)
-    
+  const registerAsOperator = useCallback(async () => {
+    if (!address) throw new Error('No address connected')
+    setIsLoading(true)
+
     try {
-      // 1. Wrap ETH to WETH
-      const wrapTx = await writeContract({
-        address: HOLESKY_CONTRACTS.eigenLayer.weth,
+      const hash = await writeContractAsync({
+        address: contracts.eigenLayer.delegationManager,
+        abi: DelegationManagerABI,
+        functionName: 'registerAsOperator',
+        args: [address, "0x0000000000000000000000000000000000000000"]
+      })
+
+      await publicClient?.waitForTransactionReceipt({ hash })
+      return hash
+    } finally {
+      setIsLoading(false)
+    }
+  }, [address, publicClient, writeContractAsync])
+
+  const stakeWETH = useCallback(async (amount: string) => {
+    if (!address) throw new Error('No address connected')
+    setIsLoading(true)
+
+    try {
+      const stakeAmount = parseEther(amount)
+
+      // 1. Wrap ETH
+      const wrapHash = await writeContractAsync({
+        address: contracts.eigenLayer.weth,
         abi: WETHABI,
         functionName: 'deposit',
-        value: parseEther(amount)
-      }) as unknown as `0x${string}`
-      await publicClient.waitForTransactionReceipt({ hash: wrapTx })
+        value: stakeAmount
+      })
+      await publicClient?.waitForTransactionReceipt({ hash: wrapHash })
 
-      // 2. Approve WETH spending
-      const approveTx = await writeContract({
-        address: HOLESKY_CONTRACTS.eigenLayer.weth,
+      // 2. Approve WETH
+      const approveHash = await writeContractAsync({
+        address: contracts.eigenLayer.weth,
         abi: WETHABI,
         functionName: 'approve',
-        args: [HOLESKY_CONTRACTS.eigenLayer.strategyManager, parseEther(amount)]
-      }) as unknown as `0x${string}`
-      await publicClient.waitForTransactionReceipt({ hash: approveTx })
+        args: [contracts.eigenLayer.strategyManager, stakeAmount]
+      })
+      await publicClient?.waitForTransactionReceipt({ hash: approveHash })
 
-      // 3. Deposit into strategy
-      const stakeTx = await writeContract({
-        address: HOLESKY_CONTRACTS.eigenLayer.strategyManager,
+      // 3. Stake WETH
+      const stakeHash = await writeContractAsync({
+        address: contracts.eigenLayer.strategyManager,
         abi: StrategyManagerABI,
         functionName: 'depositIntoStrategy',
         args: [
-          HOLESKY_CONTRACTS.eigenLayer.wethStrategy,
-          HOLESKY_CONTRACTS.eigenLayer.weth,
-          parseEther(amount)
+          contracts.eigenLayer.wethStrategy,
+          contracts.eigenLayer.weth,
+          stakeAmount
         ]
-      }) as unknown as `0x${string}`
-      await publicClient.waitForTransactionReceipt({ hash: stakeTx })
+      })
+      await publicClient?.waitForTransactionReceipt({ hash: stakeHash })
 
+      return stakeHash
     } finally {
-      setIsLoadingOperator(false)
+      setIsLoading(false)
     }
-  }, [address, publicClient, writeContract])
+  }, [address, publicClient, writeContractAsync])
+
+  const getStakeHistory = async () => {
+    const history: StakeDataPoint[] = [
+      { timestamp: Date.now() / 1000 - 86400 * 7, value: 100 },
+      { timestamp: Date.now() / 1000 - 86400 * 6, value: 150 },
+      { timestamp: Date.now() / 1000 - 86400 * 5, value: 200 },
+      { timestamp: Date.now() / 1000 - 86400 * 4, value: 180 },
+      { timestamp: Date.now() / 1000 - 86400 * 3, value: 250 },
+      { timestamp: Date.now() / 1000 - 86400 * 2, value: 300 },
+      { timestamp: Date.now() / 1000 - 86400, value: 280 }
+    ]
+    return history
+  }
 
   return {
-    setStake,
-    isLoadingOperator
+    registerAsOperator,
+    stakeWETH,
+    getStakeHistory,
+    operatorData,
+    totalStaked,
+    operatorCount,
+    isLoading
   }
 }

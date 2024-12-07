@@ -1,30 +1,30 @@
 import { ContractFunctionExecutionError } from 'viem'
 
-export function handleContractError(error: ContractFunctionExecutionError): string {
-  // Extract the error message from the contract revert
-  const message = error.message || ''
-  
-  // Check for common error patterns
-  if (message.includes('insufficient funds')) {
-    return 'Insufficient funds for transaction'
-  }
-  
-  if (message.includes('already registered')) {
-    return 'Operator is already registered'
+export function parseContractError(error: unknown): string {
+  if (error instanceof ContractFunctionExecutionError) {
+    // Extract the error message from the contract revert
+    const match = error.message.match(/reverted with the following reason:\s*(.+)/)
+    return match ? match[1] : error.message
   }
 
-  if (message.includes('minimum stake')) {
-    return 'Stake amount is below minimum required'
+  if (error instanceof Error) {
+    return error.message
   }
 
-  if (message.includes('maximum stake')) {
-    return 'Stake amount exceeds maximum allowed'
+  return 'An unknown error occurred'
+}
+
+export function formatTransactionError(error: unknown): string {
+  const errorMessage = parseContractError(error)
+
+  // Map common error messages to user-friendly messages
+  if (errorMessage.includes('insufficient funds')) {
+    return 'Insufficient funds to complete transaction'
   }
 
-  if (message.includes('not registered')) {
-    return 'Operator is not registered'
+  if (errorMessage.includes('user rejected')) {
+    return 'Transaction was rejected'
   }
 
-  // Return a generic error if no specific pattern is matched
-  return 'Transaction failed. Please check your inputs and try again.'
+  return errorMessage || 'Transaction failed. Please check your inputs and try again.'
 } 

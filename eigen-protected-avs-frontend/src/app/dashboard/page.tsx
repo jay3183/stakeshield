@@ -1,8 +1,8 @@
 'use client'
 
-import { DashboardMetrics } from '@/components/dashboard/metrics'
+import { DashboardMetrics } from '@/components/Dashboard/metrics'
 import { StakeForm } from '@/components/dashboard/stake-form'
-import { Card } from '@/components/ui/card'
+import { Card } from '@/components/UI/card'
 
 export default function DashboardPage() {
   return (

@@ -1,7 +1,7 @@
-'use client'
-
+import '@rainbow-me/rainbowkit/styles.css'
 import '@/app/globals.css'
-import { Providers } from '@/components/providers'
+import { Providers } from '@/components/Providers'
+import { MainLayout } from '@/components/Layout/main-layout'
 
 export default function RootLayout({
   children,
@@ -11,8 +11,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          <MainLayout>{children}</MainLayout>
+        </Providers>
       </body>
     </html>
   )
 }
+

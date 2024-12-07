@@ -1,24 +1,25 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
-import { type Chain } from 'viem'
+import { holesky } from 'wagmi/chains'
+import { http } from 'wagmi'
 
-const holeskyChain: Chain = {
-  id: 17000,
-  name: 'Holesky',
-  nativeCurrency: {
-    decimals: 18,
-    name: 'Holesky ETH',
-    symbol: 'ETH',
+export const contracts = {
+  eigenLayer: {
+    delegationManager: '0xA44151489861Fe9e3055d95adC98FbD462B948e7' as `0x${string}`,
+    strategyManager: '0xdfB5f6CE42aAA7830E94ECFCcAd411beF4d4D5b6' as `0x${string}`,
+    weth: '0x94373a4919B3240D86eA41593D5aBb7Cb5085849' as `0x${string}`,
+    wethStrategy: '0x80528D6e9A2BAbFc766965E0E26d5aB08D9CFaF9' as `0x${string}`,
+    hooks: process.env.NEXT_PUBLIC_AVS_HOOK_ADDRESS as `0x${string}`
   },
-  rpcUrls: {
-    default: { http: ['https://ethereum-holesky.publicnode.com'] },
-    public: { http: ['https://ethereum-holesky.publicnode.com'] },
-  },
+  swap: {
+    address: process.env.NEXT_PUBLIC_SWAP_CONTRACT_ADDRESS as `0x${string}`
+  }
 }
-
-export const chains = [holeskyChain] as const
 
 export const config = getDefaultConfig({
   appName: 'EigenProtected AVS',
-  projectId: 'YOUR_WALLET_CONNECT_PROJECT_ID',
-  chains,
-})
+  projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '',
+  chains: [holesky],
+  transports: {
+    [holesky.id]: http()
+  }
+}) 

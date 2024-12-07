@@ -1,0 +1,3 @@
+export const WETHABI = [
+  // ... your ABI array ...
+] as const 

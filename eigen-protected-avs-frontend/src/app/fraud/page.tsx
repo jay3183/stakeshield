@@ -2,7 +2,7 @@
 
 import { FraudProofForm } from '@/components/fraud/FraudProofForm'
 import { VerificationHistory } from '@/components/fraud/VerificationHistory'
-import { Card } from '@/components/ui/card'
+import { Card } from '@/components/UI/card'
 
 export default function FraudPage() {
   return (

@@ -9,7 +9,7 @@ interface RegisterOperatorParams {
   metadataURI: string
 }
 
-export function useEigenLayer() {
+export function useEigenLayer(operatorAddress?: string) {
   const { address } = useAccount()
   const { writeContractAsync } = useContractWrite()
   const publicClient = usePublicClient()
@@ -39,7 +39,7 @@ export function useEigenLayer() {
     address: contracts.eigenLayer.delegationManager,
     abi: eigenLayerHooksABI,
     functionName: 'isOperator',
-    args: address ? [address] : undefined,
+    args: operatorAddress ? [operatorAddress] : undefined,
   })
 
   return {

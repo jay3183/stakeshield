@@ -1,3 +1,6 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,22 +11,26 @@ datasource db {
 }
 
 model Operator {
-  id           String    @id @default(cuid())
-  address      String    @unique
-  stake        BigInt    @default(0)
-  fraudCount   Int       @default(0)
-  updatedAt    DateTime  @updatedAt
-  fraudProofs  FraudProofVerification[]
+  id            String        @id @default(uuid())
+  address       String        @unique
+  stake         BigInt
+  registeredAt  DateTime      @default(now())
+  isFraud       Boolean       @default(false)
+  fraudCount    Int          @default(0)
+  lastUpdateAt  DateTime      @default(now())
+  fraudEvents   FraudEvent[]
+
+  @@map("operators")
 }
 
-model FraudProofVerification {
-  id                String    @id @default(cuid())
-  proofId          String
-  isValid          Boolean
-  timestamp        DateTime   @default(now())
-  verificationError String?
-  operator         Operator?  @relation(fields: [operatorId], references: [id])
-  operatorId       String?
-
-  @@index([proofId])
+model FraudEvent {
+  id          String      @id @default(uuid())
+  operatorId  String
+  operator    Operator    @relation(fields: [operatorId], references: [id])
+  proofId     String
+  detectedAt  DateTime    @default(now())
+  details     String?
+  isValid     Boolean
+  
+  @@map("fraud_events")
 }

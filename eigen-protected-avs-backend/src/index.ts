@@ -1,22 +1,16 @@
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
-import { setupRoutes } from './routes/index'
-import { errorHandler } from './middleware/error'
-import { requestLogger } from './middleware/logging'
-
-dotenv.config()
+import operatorRoutes from './routes/operators'
+import registerOperatorRoutes from './routes/register-operator'
+import fraudCheckRoutes from './routes/fraud-check'
 
 const app = express()
-const PORT = process.env.PORT || 3003
-
 app.use(cors())
 app.use(express.json())
-app.use(requestLogger)
 
-setupRoutes(app)
-app.use(errorHandler)
+app.use('/api/operators', operatorRoutes)
+app.use('/api/register', registerOperatorRoutes)
+app.use('/api/fraud-check', fraudCheckRoutes)
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
-}) 
+const port = process.env.PORT || 3001
+app.listen(port, () => console.log(`Server running on port ${port}`)) 

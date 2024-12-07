@@ -1,7 +1,7 @@
 'use client'
 
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Card } from '@/components/UI/card'
+import { Button } from '@/components/UI/button'
 import { useState, useEffect } from 'react'
 import { useNotifications } from '@/hooks/use-notifications'
 import { formatDistanceToNow } from 'date-fns'
