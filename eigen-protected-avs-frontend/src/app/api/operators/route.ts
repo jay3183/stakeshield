@@ -1,17 +1,17 @@
 import { createPublicClient, http } from 'viem'
-import { sepolia } from 'viem/chains'
+import { holesky } from 'viem/chains'
 import { avsABI } from '@/web3/abis/avs'
 import { CONTRACT_ADDRESSES } from '@/web3/constants'
 
 const client = createPublicClient({
-  chain: sepolia,
+  chain: holesky,
   transport: http()
 })
 
 export async function GET(request: Request) {
   try {
     const operators = await client.readContract({
-      address: CONTRACT_ADDRESSES.EIGEN_PROTECTED_AVS[11155111],
+      address: CONTRACT_ADDRESSES.EIGEN_PROTECTED_AVS[17000],
       abi: avsABI,
       functionName: 'operators',
       args: [request.url as `0x${string}`]

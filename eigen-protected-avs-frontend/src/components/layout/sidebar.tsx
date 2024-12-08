@@ -8,6 +8,7 @@ import {
   CurrencyDollarIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline'
+import type { LucideIcon } from 'lucide-react'
 
 interface SidebarProps {
   isCollapsed: boolean
@@ -15,15 +16,21 @@ interface SidebarProps {
   isOpen: boolean
 }
 
+interface NavItem {
+  name: string
+  href: string
+  Icon: any // We'll use type assertion when using the icon
+}
+
 export function Sidebar({ isCollapsed, isMobile, isOpen }: SidebarProps) {
   const pathname = usePathname()
 
-  const navigation = [
-    { name: 'Dashboard', href: '/', icon: HomeIcon },
-    { name: 'Operators', href: '/operators', icon: UserGroupIcon },
-    { name: 'Price Feeds', href: '/price-feeds', icon: CurrencyDollarIcon },
-    { name: 'State Sync', href: '/state-sync', icon: ArrowPathIcon },
-  ]
+  const navigation: NavItem[] = [
+    { name: 'Dashboard', href: '/', Icon: HomeIcon },
+    { name: 'Operators', href: '/operators', Icon: UserGroupIcon },
+    { name: 'Price Feeds', href: '/price-feeds', Icon: CurrencyDollarIcon },
+    { name: 'State Sync', href: '/state-sync', Icon: ArrowPathIcon },
+  ] as const
 
   if (isMobile && !isOpen) return null
 
@@ -42,13 +49,14 @@ export function Sidebar({ isCollapsed, isMobile, isOpen }: SidebarProps) {
         <span className={`font-bold text-xl transition-all duration-300 ${
           isCollapsed && !isMobile ? 'scale-0' : 'scale-100'
         }`}>
-          EigenLayer
+          StakeShield
         </span>
       </div>
       
       <nav className="flex-1 space-y-1 p-2 overflow-y-auto">
         {navigation.map((item) => {
           const isActive = pathname === item.href
+          const Icon = item.Icon
           return (
             <Link
               key={item.name}
@@ -61,7 +69,7 @@ export function Sidebar({ isCollapsed, isMobile, isOpen }: SidebarProps) {
                 }
               `}
             >
-              <item.icon className="h-5 w-5 flex-shrink-0" />
+              <Icon className="h-5 w-5 flex-shrink-0" />
               <span className={`transition-all duration-300 ${
                 isCollapsed && !isMobile ? 'opacity-0 w-0' : 'opacity-100'
               }`}>

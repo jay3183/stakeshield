@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { Sidebar } from '@/components/Layout/sidebar'
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
+  console.log("MainLayout rendering");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -25,6 +27,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="flex">
+        <div className="fixed top-4 right-4 z-50 bg-red-500">
+          <ConnectButton />
+        </div>
+
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all"

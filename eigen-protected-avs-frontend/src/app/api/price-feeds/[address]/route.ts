@@ -25,9 +25,9 @@ const CHAINLINK_ABI = [
 
 export async function GET(
   request: NextRequest,
-  context: { params: { address: string } }
+  { params }: { params: { address: string } }
 ): Promise<Response> {
-  const address = context.params.address
+  const { address } = params
 
   if (!isAddress(address)) {
     return Response.json({ 

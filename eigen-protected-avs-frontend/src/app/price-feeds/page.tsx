@@ -287,7 +287,12 @@ function PriceFeeds() {
 export default function PriceFeedsPage() {
   return (
     <ClientOnly>
-      <PriceFeeds />
+      <div className="container mx-auto pt-24 px-4 mt-8">
+        <h1 className="text-2xl font-bold mb-6">Price Feeds</h1>
+        <div className="relative z-0">
+          <PriceFeeds />
+        </div>
+      </div>
     </ClientOnly>
   )
 }

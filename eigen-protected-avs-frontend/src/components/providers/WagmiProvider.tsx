@@ -1,19 +1,29 @@
 'use client'
 
-import { WagmiConfig } from 'wagmi'
-import { config } from '@/lib/wagmi'
-import { useEffect, useState } from 'react'
+import { getDefaultWallets, RainbowKitProvider } from '@rainbow-me/rainbowkit'
+import { createConfig, WagmiConfig } from 'wagmi'
+import { holesky } from 'wagmi/chains'
+import { http } from 'viem'
+
+const { connectors } = getDefaultWallets({
+  appName: 'EigenProtected AVS',
+  projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '',
+})
+
+const config = createConfig({
+  chains: [holesky],
+  connectors,
+  transports: {
+    [holesky.id]: http()
+  }
+})
 
 export function WagmiProvider({ children }: { children: React.ReactNode }) {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return null
-  }
-
-  return <WagmiConfig config={config}>{children}</WagmiConfig>
-} 
+  return (
+    <WagmiConfig config={config}>
+      <RainbowKitProvider>
+        {children}
+      </RainbowKitProvider>
+    </WagmiConfig>
+  )
+}

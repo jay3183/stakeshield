@@ -7,7 +7,7 @@ export function Header() {
   const { theme, toggleTheme } = useTheme()
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-[100] w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between">
         <div className="flex items-center gap-8">
           <h1 className="text-xl font-bold">EigenLayer AVS</h1>
@@ -23,11 +23,13 @@ export function Header() {
             onClick={toggleTheme}
             className="rounded-md p-2 hover:bg-accent"
           >
-            {theme === 'dark' ? '��' : '🌙'}
+            {theme === 'dark' ? '🌞' : '🌙'}
           </button>
-          <ConnectButton />
+          <div className="relative z-[100]">
+            <ConnectButton />
+          </div>
         </div>
       </div>
     </header>
   )
-} 
+}

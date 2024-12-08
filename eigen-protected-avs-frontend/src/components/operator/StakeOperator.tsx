@@ -7,7 +7,6 @@ import { Input } from '@/components/UI/input'
 import { useAVSContract } from '@/hooks/use-avs-contract'
 import { LoadingSpinner } from '@/components/UI/loading-spinner'
 import { toast } from 'react-hot-toast'
-import { parseEther } from 'viem'
 
 export function StakeOperator() {
   const [amount, setAmount] = useState('')
@@ -17,8 +16,8 @@ export function StakeOperator() {
     e.preventDefault()
     
     try {
-      const parsedAmount = parseEther(amount)
-      await stakeWETH(parsedAmount)
+      if (!amount) return
+      await stakeWETH(amount.toString())
       toast.success('Successfully staked WETH')
       setAmount('')
     } catch (error: any) {

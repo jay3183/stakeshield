@@ -1,18 +1,14 @@
 'use client'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Web3ClientProvider } from '@/components/providers/web3-client-provider'
+import { Providers as Web3Providers } from '@/components/Providers'
 
 const queryClient = new QueryClient()
 
-interface ProvidersProps {
-  children: React.ReactNode
-}
-
-export function Providers({ children }: ProvidersProps) {
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <Web3ClientProvider>{children}</Web3ClientProvider>
+      <Web3Providers>{children}</Web3Providers>
     </QueryClientProvider>
   )
 } 

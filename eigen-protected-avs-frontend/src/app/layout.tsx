@@ -3,6 +3,11 @@ import '@/app/globals.css'
 import { Providers } from '@/components/Providers'
 import { MainLayout } from '@/components/Layout/main-layout'
 
+export const metadata = {
+  title: 'Eigen Protected AVS',
+  description: 'Eigen Protected AVS Frontend',
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -18,4 +23,3 @@ export default function RootLayout({
     </html>
   )
 }
-

@@ -10,3 +10,13 @@
 [submodule "lib/v4-core"]
 	path = lib/v4-core
 	url = https://github.com/uniswap/v4-core
+	branch = main
+[submodule "eigen-protected-avs-frontend/contracts/lib/forge-std"]
+	path = eigen-protected-avs-frontend/contracts/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "eigen-protected-avs-frontend/lib/openzeppelin-contracts"]
+	path = eigen-protected-avs-frontend/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "eigen-protected-avs-frontend/lib/v4-core"]
+	path = eigen-protected-avs-frontend/lib/v4-core
+	url = https://github.com/uniswap/v4-core

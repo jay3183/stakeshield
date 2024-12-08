@@ -1,75 +1,20 @@
-## Foundry
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
 
-Foundry consists of:
+# StakeShield
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+A Uniswap v4hook for interacting with EigenLayer's Protected AVS contracts on Holesky testnet.
 
-## Documentation
+## Overview
+This hook provides a simple interface for interacting with EigenLayer's Protected AVS contracts, including operator registration and WETH staking functionality.
 
-https://book.getfoundry.sh/
+## Features
+- Register as an operator
+- Stake WETH
+- View operator stats and stake history
+- Real-time updates for operator registration events
+- Error handling for contract interactions
 
-## Usage
-
-### Build
-
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
-
-# EigenProtectedAVSHook
-
-A Uniswap v4 hook that integrates with EigenLayer for operator validation.
-
-## Quick Start
+## Installation
 
 1. Install dependencies:
 

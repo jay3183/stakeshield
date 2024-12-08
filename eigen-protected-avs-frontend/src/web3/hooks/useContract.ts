@@ -1,4 +1,4 @@
-import { useContractRead, useContractWrite, useWaitForTransaction } from 'wagmi'
+import { useContractRead, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { EigenProtectedAVSABI } from '../abis/EigenProtectedAVS'
 import { CONTRACT_ADDRESSES } from '../constants'
 
@@ -10,29 +10,28 @@ export function useEigenProtectedAVS() {
     error: verifyProofError,
     refetch: refetchVerifyProof
   } = useContractRead({
-    address: CONTRACT_ADDRESSES.EIGEN_PROTECTED_AVS[11155111],
+    address: CONTRACT_ADDRESSES.EIGEN_PROTECTED_AVS[17000],
     abi: EigenProtectedAVSABI,
     functionName: 'verifyProof',
-    args: ['0x']
+    args: ['0x0000000000000000000000000000000000000000000000000000000000000000'],
+    query: {
+      enabled: false
+    }
   })
 
   // Write functions
   const { 
     data: setFraudTx,
     isLoading: isSettingFraud,
-    writeAsync: setShouldReturnFraud,
+    writeContract: setShouldReturnFraud,
     error: setFraudError
-  } = useContractWrite({
-    address: CONTRACT_ADDRESSES.EIGEN_PROTECTED_AVS[11155111],
-    abi: EigenProtectedAVSABI,
-    functionName: 'setShouldReturnFraud'
-  })
+  } = useWriteContract()
 
   // Wait for transaction
   const { 
     isLoading: isWaitingForTx,
     isSuccess: txSuccess
-  } = useWaitForTransaction({
+  } = useWaitForTransactionReceipt({
     hash: setFraudTx
   })
 
