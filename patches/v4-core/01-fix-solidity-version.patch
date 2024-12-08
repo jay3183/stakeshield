@@ -1,8 +1,0 @@
-diff --git a/src/interfaces/IPoolManager.sol b/src/interfaces/IPoolManager.sol
-index xxxxxxx..xxxxxxx 100644
---- a/src/interfaces/IPoolManager.sol
-+++ b/src/interfaces/IPoolManager.sol
-@@ -1,6 +1,6 @@
- // SPDX-License-Identifier: MIT
--pragma solidity ^0.8.24;
-+pragma solidity ^0.8.23;
