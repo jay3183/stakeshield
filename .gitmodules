@@ -6,10 +6,10 @@
 	url = https://github.com/smartcontractkit/chainlink
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
-	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts.git
 [submodule "lib/v4-core"]
 	path = lib/v4-core
-	url = https://github.com/uniswap/v4-core
+	url = https://github.com/Uniswap/v4-core.git
 	branch = main
 [submodule "eigen-protected-avs-frontend/contracts/lib/forge-std"]
 	path = eigen-protected-avs-frontend/contracts/lib/forge-std
@@ -20,3 +20,6 @@
 [submodule "eigen-protected-avs-frontend/lib/v4-core"]
 	path = eigen-protected-avs-frontend/lib/v4-core
 	url = https://github.com/uniswap/v4-core
+[submodule "eigenlayer-middleware"]
+	path = eigenlayer-middleware
+	url = https://github.com/Layr-Labs/eigenlayer-middleware.git
