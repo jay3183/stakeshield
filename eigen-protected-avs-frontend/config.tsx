@@ -1,19 +1,16 @@
 'use client'
 
-import { createConfig, http } from 'wagmi'
+import { createConfig } from 'wagmi'
 import { mainnet, sepolia, holesky } from 'viem/chains'
-import { injected } from 'wagmi/connectors'
+import { createPublicClient, http } from 'viem'
+import { InjectedConnector } from '@wagmi/core/connectors'
 
 export const config = createConfig({
-  chains: [holesky, mainnet, sepolia],
-  transports: {
-    [holesky.id]: http('https://ethereum-holesky.publicnode.com'),
-    [mainnet.id]: http(),
-    [sepolia.id]: http(),
-  },
-  connectors: [
-    injected(),
-  ],
+  connectors: [new InjectedConnector()],
+  publicClient: createPublicClient({
+    chain: holesky,
+    transport: http()
+  }),
 })
 
 // Export network-specific constants

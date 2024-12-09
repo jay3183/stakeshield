@@ -204,11 +204,43 @@ contract EigenProtectedAVSHook is IHooks, ReentrancyGuard, Pausable, Ownable {
         return IHooks.afterDonate.selector;
     }
 
-    function beforeAddLiquidity(address, PoolKey calldata, IPoolManager.ModifyLiquidityParams calldata, bytes calldata) external pure returns (bytes4) {
+    function beforeAddLiquidity(
+        address pool,
+        PoolKey calldata,
+        IPoolManager.ModifyLiquidityParams calldata params,
+        bytes calldata data
+    ) external whenSystemNotPaused returns (bytes4) {
+        // Check if operator is registered and not fraudulent
+        require(operators[msg.sender].isRegistered, "Not a registered operator");
+        require(operators[msg.sender].fraudCount < config.maxFraudCount(), "Operator has fraud history");
+        
+        // Check for suspicious patterns via Brevis
+        bool isFraudulent = brevisProof.detectAnomalies(
+            msg.sender,
+            abi.encode(pool, params.liquidityDelta)
+        );
+        
+        if (isFraudulent) {
+            operators[msg.sender].fraudCount++;
+            emit FraudDetected(msg.sender, data);
+            revert("Suspicious liquidity pattern detected");
+        }
+
         return IHooks.beforeAddLiquidity.selector;
     }
 
-    function afterAddLiquidity(address, PoolKey calldata, IPoolManager.ModifyLiquidityParams calldata, BalanceDelta, BalanceDelta, bytes calldata) external pure returns (bytes4, BalanceDelta) {
+    function afterAddLiquidity(
+        address pool,
+        PoolKey calldata,
+        IPoolManager.ModifyLiquidityParams calldata params,
+        BalanceDelta,
+        BalanceDelta delta,
+        bytes calldata
+    ) external whenSystemNotPaused returns (bytes4, BalanceDelta) {
+        // Update operator stake records
+        operators[msg.sender].stake += uint256(uint128(delta.amount0()));
+        emit StakeUpdated(msg.sender, operators[msg.sender].stake);
+        
         return (IHooks.afterAddLiquidity.selector, BalanceDelta.wrap(0));
     }
 
