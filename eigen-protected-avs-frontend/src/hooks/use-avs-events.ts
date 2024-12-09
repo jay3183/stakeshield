@@ -25,7 +25,7 @@ export function useAVSEvents() {
     const fetchEvents = async () => {
       try {
         const logs = await publicClient.getLogs({
-          address: HOLESKY_CONTRACTS.avsHook,
+          address: HOLESKY_CONTRACTS.eigenProtectedAVS.avsHook,
           events: avsHookABI,
           fromBlock: 'earliest'
         })

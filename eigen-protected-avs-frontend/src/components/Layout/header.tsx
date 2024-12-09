@@ -10,7 +10,7 @@ export function Header() {
     <header className="sticky top-0 z-[100] w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between">
         <div className="flex items-center gap-8">
-          <h1 className="text-xl font-bold">EigenLayer AVS</h1>
+          <h1 className="text-xl font-bold">StakeShield</h1>
           <nav className="hidden md:flex gap-6">
             <a href="/" className="text-sm font-medium">Dashboard</a>
             <a href="/operators" className="text-sm font-medium">Operators</a>

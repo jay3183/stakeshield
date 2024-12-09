@@ -1,16 +1,22 @@
 'use client'
 
 import { Card } from '@/components/UI/card'
-import { useAVSContract } from '@/hooks/use-avs-contract'
+import { useOperatorContract } from '@/hooks/use-operator-contract'
 
 export function RegisterOperator() {
-  const { registerAsOperator, isLoading } = useAVSContract()
+  const { registerAsOperator, isLoading } = useOperatorContract()
 
   const handleRegister = async () => {
+    console.log('Register button clicked')
     try {
-      await registerAsOperator('0x0000000000000000000000000000000000000000')
+      console.log('Calling registerAsOperator...')
+      const result = await registerAsOperator()
+      console.log('Registration result:', result)
     } catch (error: any) {
       console.error('Failed to register:', error)
+      if (error.cause) {
+        console.error('Error cause:', error.cause)
+      }
     }
   }
 

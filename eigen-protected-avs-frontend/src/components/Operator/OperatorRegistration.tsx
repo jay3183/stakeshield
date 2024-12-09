@@ -7,20 +7,49 @@ import { Input } from '@/components/UI/input'
 import { useAVSContract } from '@/hooks/use-avs-contract'
 import { LoadingSpinner } from '@/components/UI/loading-spinner'
 import { toast } from 'react-hot-toast'
+import { useAccount } from 'wagmi'
 
 export function OperatorRegistration() {
   const [earningsReceiver, setEarningsReceiver] = useState('')
-  const { registerAsOperator, isLoading } = useAVSContract()
+  const { registerInAvs } = useAVSContract()
+  const { address } = useAccount()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     try {
-      await registerAsOperator(earningsReceiver)
+      if (!address) {
+        throw new Error('Wallet not connected')
+      }
+      
+      if (!earningsReceiver) {
+        throw new Error('Please enter an earnings receiver address')
+      }
+
+      await registerInAvs(earningsReceiver as `0x${string}`)
       toast.success('Successfully registered as operator')
     } catch (error: any) {
-      toast.error(error.message || 'Failed to register')
+      console.error('Registration error:', error)
+      const message = error.message?.includes('execution reverted') 
+        ? 'Registration failed. Please ensure you have enough ETH (0.05) and try again.'
+        : error.message || 'Failed to register'
+      toast.error(message)
     }
+  }
+
+  if (!address) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Register as Operator</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="bg-blue-50 p-4 rounded-lg text-blue-700">
+            Please connect your wallet to register as an operator
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -39,19 +68,14 @@ export function OperatorRegistration() {
               placeholder="0x..."
               value={earningsReceiver}
               onChange={(e) => setEarningsReceiver(e.target.value)}
-              disabled={isLoading}
             />
           </div>
           <Button 
             type="submit" 
-            disabled={isLoading || !earningsReceiver}
+            disabled={!earningsReceiver}
             className="w-full"
           >
-            {isLoading ? (
-              <LoadingSpinner size="sm" />
-            ) : (
-              'Register'
-            )}
+            Register
           </Button>
         </form>
       </CardContent>

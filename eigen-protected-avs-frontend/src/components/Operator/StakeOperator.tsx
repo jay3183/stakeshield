@@ -14,13 +14,16 @@ export function StakeOperator() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('Submit clicked, amount:', amount)
     
     try {
       if (!amount) return
+      console.log('Calling stakeWETH with amount:', amount)
       await stakeWETH(amount.toString())
       toast.success('Successfully staked WETH')
       setAmount('')
     } catch (error: any) {
+      console.error('Staking error:', error)
       toast.error(error.message || 'Failed to stake')
     }
   }

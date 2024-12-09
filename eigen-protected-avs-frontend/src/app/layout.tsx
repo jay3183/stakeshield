@@ -4,8 +4,8 @@ import { Providers } from '@/components/Providers'
 import { MainLayout } from '@/components/Layout/main-layout'
 
 export const metadata = {
-  title: 'Eigen Protected AVS',
-  description: 'Eigen Protected AVS Frontend',
+  title: 'StakeShield',
+  description: 'StakeShield - Protected AVS Platform'
 }
 
 export default function RootLayout({
