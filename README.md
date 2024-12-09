@@ -36,7 +36,7 @@ This project provides a complete infrastructure for interacting with EigenLayer'
 *Main dashboard interface showing key metrics and status*
 
 ### Operators
-![Operators](docs/images/operators.png)
+![Operators](docs/images/Operators.png)
 *Operator registration and management interface*
 
 ### Price Feeds
