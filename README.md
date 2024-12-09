@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/logo.png" alt="StakeShield Logo" width="200"/>
+  <img src="docs/images/logo.jpg" alt="StakeShield Logo" width="200"/>
 </p>
 
 <h1 align="center">StakeShield</h1>
